@@ -1,9 +1,15 @@
 (ns esterqueira.core
   (:import
    (org.HdrHistogram Histogram)
-   (org.lwjgl.glfw GLFW GLFWErrorCallback GLFWKeyCallback)
+   (org.lwjgl.glfw GLFW
+                   GLFW$Functions
+                   GLFWErrorCallback
+                   GLFWFramebufferSizeCallback
+                   GLFWFramebufferSizeCallbackI
+                   GLFWKeyCallback)
    (org.lwjgl.nanovg NanoVG NanoVGGL3 NVGColor)
-   (org.lwjgl.opengl GL GL11 GL15 GL20 GL30)))
+   (org.lwjgl.opengl GL GL11 GL15 GL20 GL30)
+   (org.lwjgl.system JNI MemoryStack MemoryUtil)))
 
 
 (defmacro with-glfw [& body]
@@ -18,6 +24,11 @@
          (GLFW/glfwTerminate)))))
 
 
+(defn on-resize [w width height]
+  (GL11/glViewport 0 0 width height)
+  (println "resized!" w width height))
+
+
 (defn glfw-window [width height title]
   (GLFW/glfwDefaultWindowHints)
   (GLFW/glfwWindowHint GLFW/GLFW_VISIBLE GLFW/GLFW_FALSE)
@@ -26,7 +37,17 @@
   (GLFW/glfwWindowHint GLFW/GLFW_OPENGL_FORWARD_COMPAT GL11/GL_TRUE)
   (GLFW/glfwWindowHint GLFW/GLFW_CONTEXT_VERSION_MAJOR 3)
   (GLFW/glfwWindowHint GLFW/GLFW_CONTEXT_VERSION_MINOR 2)
-  (let [w (GLFW/glfwCreateWindow width height title 0 0)]
+  (let [w (GLFW/glfwCreateWindow width height title 0 0)
+        kcb (proxy [GLFWKeyCallback] []
+              (invoke [window key scancode action mods]
+                (when (and (= key GLFW/GLFW_KEY_ESCAPE)
+                           (= action GLFW/GLFW_RELEASE))
+                  (GLFW/glfwSetWindowShouldClose window true))))
+        cb (proxy [GLFWFramebufferSizeCallback] []
+             (invoke [window width height]
+               (on-resize window width height)))]
+    (GLFW/glfwSetKeyCallback w kcb)
+    (GLFW/glfwSetFramebufferSizeCallback w cb)
     (GLFW/glfwMakeContextCurrent w)
     (GLFW/glfwSwapInterval 1)
     (GLFW/glfwShowWindow w)
@@ -43,11 +64,10 @@
         (GLFW/glfwDestroyWindow w)))))
 
 
-(defn init-gl [width height]
+(defn init-gl []
   (GL/createCapabilities)
   (println "OpenGL version:" (GL11/glGetString GL11/GL_VERSION))
   (GL11/glClearColor 0.5 0.5 0.5 0.0)
-  (GL11/glViewport 0 0 width height)
   (GL11/glEnable GL11/GL_STENCIL_TEST))
 
 
@@ -58,12 +78,19 @@
 (set! *warn-on-reflection* true)
 
 
+(defn framebuffer-size [^long w]
+  (with-open [stack (MemoryStack/stackPush)]
+    (let [width (.mallocInt stack 1)
+          height (.mallocInt stack 1)]
+      (GLFW/glfwGetFramebufferSize w width height)
+      [(.get width 0) (.get height 0)])))
+
+
 (defn draw []
   nil)
 
 
-(defn main-loop [window width height]
-  (init-gl width height)
+(defn main-loop [window]
   (let [histogram (Histogram. 1 (sec->ns 1) 3)]
     (loop [frame-t0 nil]
       (draw)
@@ -86,13 +113,25 @@
     (with-window {:width width
                   :height height
                   :title "Janela"}
-      main-loop
-      width
-      height)))
+      (fn [w]
+        (init-gl)
+        (apply on-resize w (framebuffer-size w))
+        (main-loop w)))))
 
 
 (comment
 
+  (with-glfw
+    (with-window {:width 123 :height 456 :title "prova"}
+      #(println "size si" (framebuffer-size %))))
+
   (run 800 800)
 
+  (def cb (proxy [GLFWFramebufferSizeCallback] []
+            (invoke [window width height]
+              (println "resized!" width height))))
+
+  (instance? GLFWFramebufferSizeCallbackI cb)
+  (MemoryUtil/memAddressSafe cb)
+  GLFW$Functions/SetFramebufferSizeCallback
   )
