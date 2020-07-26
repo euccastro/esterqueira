@@ -1,8 +1,2 @@
 * stack
-** handle resizing
-*** que cousas som afetadas polo tamanho?
-**** glviewport
-**** drawing in general
-**** drawing in general
-*** como flui a informaçom de tamanho a essas cousas?
-**** podemo-la obter da window
+** nanovg test
