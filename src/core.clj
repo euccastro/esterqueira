@@ -29,7 +29,7 @@
   (println "resized!" w width height))
 
 
-(defn glfw-window [width height title]
+(defn create-glfw-window [width height title]
   (GLFW/glfwDefaultWindowHints)
   (GLFW/glfwWindowHint GLFW/GLFW_VISIBLE GLFW/GLFW_FALSE)
   (GLFW/glfwWindowHint GLFW/GLFW_RESIZABLE GLFW/GLFW_TRUE)
@@ -55,9 +55,8 @@
 
 
 (defn with-window [{:keys [width height title]}
-                   f
-                   & args]
-  (let [w (glfw-window width height title)]
+                   f & args]
+  (let [w (create-glfw-window width height title)]
     (try
       (apply f w args)
       (finally
