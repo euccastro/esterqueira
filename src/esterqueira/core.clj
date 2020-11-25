@@ -9,7 +9,6 @@
                    GLFWFramebufferSizeCallback
                    GLFWFramebufferSizeCallbackI
                    GLFWKeyCallback)
-   (org.lwjgl.nanovg NanoVG NanoVGGL3 NVGColor)
    (org.lwjgl.opengl GL GL11 GL15 GL20 GL30)
    (org.lwjgl.system MemoryStack MemoryUtil)))
 
@@ -75,17 +74,6 @@
   (* s 1000000000))
 
 
-(defn with-nvg [f]
-  (if-let [nvg
-           (NanoVGGL3/nvgCreate 0)]
-    (try
-      (NanoVG/nvgCreateFont nvg "hack" (.getFile (io/resource "Hack-Regular.ttf")))
-      (f nvg)
-      (finally
-        (NanoVGGL3/nvgDelete nvg)))
-    (throw (RuntimeException. "Failed to create NanoVG"))))
-
-
 (set! *warn-on-reflection* true)
 
 
@@ -97,34 +85,14 @@
       [(.get width 0) (.get height 0)])))
 
 
-(defn stack-nvg-color [r g b a]
-  (doto (NVGColor/mallocStack)
-    (.r r)
-    (.g g)
-    (.b b)
-    (.a a)))
+(defn draw [window]
+  ,,,)
 
 
-(defn draw [window ^long nvg]
-  (with-open [_ (MemoryStack/stackPush)]
-    (let [[width height] (framebuffer-size window)]
-      (NanoVG/nvgBeginFrame nvg width height 1))
-    (do
-      (NanoVG/nvgBeginPath nvg)
-      (NanoVG/nvgRoundedRect nvg, 10, 10, 100, 100, 5)
-      (NanoVG/nvgFillColor nvg (stack-nvg-color 1.0 1.0 0.0 1.0))
-      (NanoVG/nvgFill nvg))
-    (do
-      (NanoVG/nvgFontFace nvg "hack")
-      (NanoVG/nvgFillColor nvg (stack-nvg-color 1.0 0.0 0.0 1.0))
-      (NanoVG/nvgText nvg 50.0 50.0 "Hello world!"))
-    (NanoVG/nvgEndFrame nvg)))
-
-
-(defn main-loop [window nvg]
+(defn main-loop [window]
   (let [histogram (Histogram. 1 (sec->ns 1) 3)]
     (loop [frame-t0 nil]
-      (draw window nvg)
+      (draw window)
       (when frame-t0
         (.recordValue histogram (- (System/nanoTime) frame-t0)))
       (GLFW/glfwSwapBuffers window)
@@ -147,9 +115,7 @@
       (fn [w]
         (init-gl)
         (apply on-resize w (framebuffer-size w))
-        (with-nvg
-          (fn [nvg]
-            (main-loop w nvg)))))))
+        (main-loop w)))))
 
 
 (comment
@@ -167,7 +133,6 @@
   (instance? GLFWFramebufferSizeCallbackI cb)
   (MemoryUtil/memAddressSafe cb)
   GLFW$Functions/SetFramebufferSizeCallback
-  (stack-nvg-color 1.0 1.0 1.0 1.0)
 
-  (future (run 400 400))
+  (future (run 400 40))
   )
