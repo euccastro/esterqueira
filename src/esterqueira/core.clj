@@ -168,4 +168,6 @@
   (MemoryUtil/memAddressSafe cb)
   GLFW$Functions/SetFramebufferSizeCallback
   (stack-nvg-color 1.0 1.0 1.0 1.0)
+
+  (future (run 400 400))
   )
