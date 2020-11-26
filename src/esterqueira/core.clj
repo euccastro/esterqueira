@@ -9,16 +9,20 @@
                    GLFWFramebufferSizeCallback
                    GLFWFramebufferSizeCallbackI
                    GLFWKeyCallback)
-   (org.lwjgl.opengl GL GL11 GL15 GL20 GL30)
+   (org.lwjgl.opengl GL GL11 GL15 GL20 GL30 GL45)
    (org.lwjgl.system MemoryStack MemoryUtil)))
 
 
 (def vertex-shader-src
-  "#version 330 core
+  "#version 450 core
 
-layout(location = 0) in vec3 vertexPosition_modelspace;
+layout(location = 0) in vec2 vertexPosition_modelspace;
+layout(location = 1) uniform vec2 scale;
+layout(location = 2) uniform vec2 translation;
 void main(){
-  gl_Position.xyz = vertexPosition_modelspace;
+  gl_Position.x = vertexPosition_modelspace.x * scale.x + translation.x;
+  gl_Position.y = vertexPosition_modelspace.y * scale.y + translation.y;
+  gl_Position.z = 0.0;
   gl_Position.w = 1.0;
 }
 ")
@@ -53,8 +57,8 @@ void main(){
   (GLFW/glfwWindowHint GLFW/GLFW_RESIZABLE GLFW/GLFW_TRUE)
   (GLFW/glfwWindowHint GLFW/GLFW_OPENGL_PROFILE GLFW/GLFW_OPENGL_CORE_PROFILE)
   (GLFW/glfwWindowHint GLFW/GLFW_OPENGL_FORWARD_COMPAT GL11/GL_TRUE)
-  (GLFW/glfwWindowHint GLFW/GLFW_CONTEXT_VERSION_MAJOR 3)
-  (GLFW/glfwWindowHint GLFW/GLFW_CONTEXT_VERSION_MINOR 2)
+  (GLFW/glfwWindowHint GLFW/GLFW_CONTEXT_VERSION_MAJOR 4)
+  (GLFW/glfwWindowHint GLFW/GLFW_CONTEXT_VERSION_MINOR 5)
   (let [w (GLFW/glfwCreateWindow width height title 0 0)
         kcb (proxy [GLFWKeyCallback] []
               (invoke [window key scancode action mods]
@@ -87,9 +91,9 @@ void main(){
     (GL30/glBindVertexArray array)
     (GL15/glBindBuffer GL15/GL_ARRAY_BUFFER buff)
     (GL15/glBufferData GL15/GL_ARRAY_BUFFER
-                       (float-array [-1.0 -1.0 0.0
-                                     1.0 -1.0 0.0
-                                     0.0 1.0 0.0])
+                       (float-array [-1.0 -1.0
+                                     1.0 -1.0
+                                     0.0 1.0])
                        GL15/GL_STATIC_DRAW)))
 
 
@@ -133,15 +137,13 @@ void main(){
 
 
 (defn draw [window program-id]
-  (prn "err 1" (GL11/glGetError))
   (GL30/glUseProgram program-id)
   (GL30/glEnableVertexAttribArray 0)
-  (GL30/glVertexAttribPointer 0 3 GL11/GL_FLOAT false 0 0)
-
-  (prn "err 2" (GL11/glGetError))
+  (GL30/glVertexAttribPointer 0 2 GL11/GL_FLOAT false 0 0)
+  (GL45/glUniform2f 1 0.5 0.5)
+  (GL45/glUniform2f 2 0.2 0.5)
   (GL30/glDrawArrays GL11/GL_TRIANGLES 0 3)
 
-  (prn "err 3" (GL11/glGetError))
   (GL30/glDisableVertexAttribArray 0))
 
 (defn main-loop [window]
