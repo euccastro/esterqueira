@@ -1,2 +1,61 @@
 * stack
-** nanovg test
+** o que fago?
+*** evitar design paralysis; ir fazendo!
+**** MMVP
+***** vector graphics editor?
+      vou precisar isto
+      customizar para NanoVG
+      o que é dizer, estar preparado para melhorar nanovg
+      ou mirar se thing.geom tem vector graphics?
+**** podo fazer um protótipo de bloques forth?
+***** quais som os outputs?
+**** playground de geometric algebra?
+***** pode ser umha base para Iria fazer os seus jogos
+***** e apreendo eu algo!
+**** combinar forth com geometric algebra?
+     pode ser divertido!
+     pode dar para um jogo 'educativo' para adultas
+     idealized forth, geometric algebra, space fights ou algo
+     idealizamos forth para promover os idioms mais divertidos
+     coste zero a constructs que promovam composability
+     melhor algo que poda fazer em 2D
+***** con: requer apreender geometric algebra
+      este nom é um pro?
+      qualquer cousa que faga, provavelmente queira usar estas movidas
+*** jogo educativo para Iria
+**** o que quero que apreenda?
+***** matemáticas
+****** quais habilidades em concreto?
+******* ver JUMP?
+***** systems thinking
+***** robótica/construir cousas que ajam no mundo
+****** logo mais protagonismo a susmám?
+**** que pretexto/contexto terá o jogo?
+     totó e mia e bubú etc
+****** as matemáticas/programaçom podem ser o jeito de fazer conjuros
+***** mágica que vai recarregando
+****** logo preciso estado para guardar dados/história
+******* crux
+        porque já controlo e já o uso noutras cousas
+        e mola guardar história
+***** podo recuperar microjogos twitch
+***** sandbox
+****** pero com mais lógica do que os pogo?
+***** narraçom oral?
+****** precisa um jeito de gravar/reproduzir narraçom falada
+****** ou simplesmente narro sem palavras
+******* narraçom com imagem
+******* conto-lho eu
+***** bloques forth
+****** base dum sistema de mágica?
+****** pero com higher level concepts perhaps
+***** turtle graphics?
+****** um pouco limitado quando crianças podem hogano freehand draw em computers
+***** elementos colaborativos
+****** e.g., umha jogadora tem que desenhar algo e outra reconhecê-lo
+***** implementaçom
+****** audio vou precisar si ou si
+****** asset authoring/pipeline?
+******* inkscape or custom?
+****** 2D/3D?
+******* 2D linha clara
