@@ -1,4 +1,5 @@
 (ns esterqueira.gl
+  (:require [clojure.core.async :as a])
   (:import
    (org.HdrHistogram Histogram)
    (org.lwjgl.glfw GLFW
@@ -44,12 +45,9 @@ void main(){
          (GLFW/glfwTerminate)))))
 
 
-(defn on-resize [w width height]
-  (GL45/glViewport 0 0 width height)
-  (println "resized!" w width height))
 
 
-(defn create-glfw-window [width height title]
+(defn create-glfw-window [{:keys [width height title resize-chan]}]
   (GLFW/glfwDefaultWindowHints)
   (GLFW/glfwWindowHint GLFW/GLFW_VISIBLE GLFW/GLFW_FALSE)
   (GLFW/glfwWindowHint GLFW/GLFW_RESIZABLE GLFW/GLFW_TRUE)
@@ -65,7 +63,7 @@ void main(){
                   (GLFW/glfwSetWindowShouldClose window true))))
         cb (proxy [GLFWFramebufferSizeCallback] []
              (invoke [window width height]
-               (on-resize window width height)))]
+               (a/put! resize-chan {:width width :height height})))]
     (GLFW/glfwSetKeyCallback w kcb)
     (GLFW/glfwSetFramebufferSizeCallback w cb)
     (GLFW/glfwMakeContextCurrent w)
@@ -74,8 +72,8 @@ void main(){
     w))
 
 
-(defn with-window [{:keys [width height title]} f]
-  (let [w (create-glfw-window width height title)]
+(defn with-window [window-opts f]
+  (let [w (create-glfw-window window-opts)]
     (try
       (f w)
       (finally
@@ -103,14 +101,14 @@ void main(){
         pid (GL45/glCreateProgram)]
     (GL45/glShaderSource vid vertex-shader-src)
     (GL45/glCompileShader vid)
-    (prn "vertex ret is" (ok-if-1 (GL45/glGetShaderi vid GL45/GL_COMPILE_STATUS)))
+    #_(prn "vertex ret is" (ok-if-1 (GL45/glGetShaderi vid GL45/GL_COMPILE_STATUS)))
     (GL45/glShaderSource fid fragment-shader-src)
     (GL45/glCompileShader fid)
-    (prn "fragment ret is" (ok-if-1 (GL45/glGetShaderi vid GL45/GL_COMPILE_STATUS)))
+    #_(prn "fragment ret is" (ok-if-1 (GL45/glGetShaderi vid GL45/GL_COMPILE_STATUS)))
     (GL45/glAttachShader pid vid)
     (GL45/glAttachShader pid fid)
     (GL45/glLinkProgram pid)
-    (prn "link status si" (ok-if-1 (GL45/glGetProgrami pid GL45/GL_LINK_STATUS)))
+    #_(prn "link status si" (ok-if-1 (GL45/glGetProgrami pid GL45/GL_LINK_STATUS)))
     pid))
 
 
@@ -118,7 +116,10 @@ void main(){
   (GL/createCapabilities)
   (println "OpenGL version:" (GL45/glGetString GL45/GL_VERSION))
   (GL45/glClearColor 0.5 0.5 0.5 0.0)
-  (create-square-vert-array))
+  (create-square-vert-array)
+  (GL45/glUseProgram (create-shaders))
+  (GL45/glEnableVertexAttribArray 0)
+  (GL45/glVertexAttribPointer 0 2 GL45/GL_FLOAT false 0 0))
 
 
 (defn sec->ns [s]
@@ -136,20 +137,25 @@ void main(){
       [(.get width 0) (.get height 0)])))
 
 
-(defn draw [window program-id]
-  (GL45/glUseProgram program-id)
-  (GL45/glEnableVertexAttribArray 0)
-  (GL45/glVertexAttribPointer 0 2 GL45/GL_FLOAT false 0 0)
-  (GL45/glUniform2f 1 0.5 0.5)
-  (GL45/glUniform2f 2 0.2 0.5)
-  (GL45/glDrawArrays GL45/GL_TRIANGLE_FAN 0 4)
-  (GL45/glDisableVertexAttribArray 0))
+(defn draw-rect [x y width height]
+  (GL45/glUniform2f 1 width height)
+  (GL45/glUniform2f 2 x y)
+  (GL45/glDrawArrays GL45/GL_TRIANGLE_FAN 0 4))
 
-(defn main-loop [window]
-  (let [histogram (Histogram. 1 (sec->ns 1) 3)
-        program-id (create-shaders)]
+
+(defn draw []
+  (draw-rect 0.7 0.2 0.1 0.3))
+
+
+(defn on-resize [width height]
+  (println "resized!" width height)
+  (GL45/glViewport 0 0 width height))
+
+
+(defn main-loop [window resize-chan]
+  (let [histogram (Histogram. 1 (sec->ns 1) 3)]
     (loop [frame-t0 nil]
-      (draw window program-id)
+      (draw)
       (when frame-t0
         (.recordValue histogram (- (System/nanoTime) frame-t0)))
       (GLFW/glfwSwapBuffers window)
@@ -157,6 +163,8 @@ void main(){
       (let [t (System/nanoTime)]
         (GLFW/glfwPollEvents)
         (when-not (GLFW/glfwWindowShouldClose window)
+          (when-let [{:keys [width height]} (a/poll! resize-chan)]
+            (on-resize width height))
           (recur t))))
     (.outputPercentileDistribution histogram System/out 1000000.0)))
 
@@ -164,16 +172,21 @@ void main(){
 (set! *warn-on-reflection* false)
 
 
+
+
 (defn run [{:keys [width height]}]
   (prn "running with" width height)
   (with-glfw
-    (with-window {:width width
-                  :height height
-                  :title "Janela"}
-      (fn [w]
-        (init-gl)
-        (apply on-resize w (framebuffer-size w))
-        (main-loop w)))))
+    (let [resize-chan (a/chan (a/sliding-buffer 1))]
+      (with-window {:width width
+                    :height height
+                    :title "Janela"
+                    :resize-chan resize-chan}
+        (fn [w]
+          (init-gl)
+          (apply on-resize (framebuffer-size w))
+          (main-loop w resize-chan))))))
+
 
 (defmacro quick-test [& body]
   `(with-glfw
