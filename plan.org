@@ -1,4 +1,11 @@
 * stack
+** pong
+*** fixar um aspect ratio?
+**** nom, o unit size é umha porcentage do alto da tela, redondeado para acima
+
+*** dados independentes da escala
+**** posiçom da raqueta em screen coords
+****
 ** o que fago?
 *** evitar design paralysis; ir fazendo!
 **** MMVP

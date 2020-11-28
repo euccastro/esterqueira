@@ -135,14 +135,15 @@ void main(){
       [(.get width 0) (.get height 0)])))
 
 
-(defn draw-rect [x y width height]
-  (GL45/glUniform2f 1 width height)
+(defn draw-rect [[x y hw hh]]
+  (GL45/glUniform2f 1 hw hh)
   (GL45/glUniform2f 2 x y)
   (GL45/glDrawArrays GL45/GL_TRIANGLE_FAN 0 4))
 
 
-(defn draw []
-  (draw-rect 0.7 0.2 0.1 0.3))
+(defn draw [rects]
+  (doseq [r rects]
+    (draw-rect r)))
 
 
 (defn on-resize [width height]
@@ -150,10 +151,13 @@ void main(){
   (GL45/glViewport 0 0 width height))
 
 
-(defn main-loop [window resize-chan]
-  (let [histogram (Histogram. 1 (sec->ns 1) 3)]
-    (loop [frame-t0 nil]
-      (draw)
+(defn main-loop [window resize-chan resize-handler draw-handler tick-handler]
+  (let [histogram (Histogram. 1 (sec->ns 1) 3)
+        [w h] (framebuffer-size window)]
+    (on-resize w h)
+    (loop [frame-t0 nil
+           state (resize-handler w h)]
+      (draw (draw-handler state))
       (when frame-t0
         (.recordValue histogram (- (System/nanoTime) frame-t0)))
       (GLFW/glfwSwapBuffers window)
@@ -161,27 +165,27 @@ void main(){
       (let [t (System/nanoTime)]
         (GLFW/glfwPollEvents)
         (when-not (GLFW/glfwWindowShouldClose window)
-          (when-let [{:keys [width height]} (a/poll! resize-chan)]
-            (on-resize width height))
-          (recur t))))
+          (recur t (if-let [{:keys [width height]} (a/poll! resize-chan)]
+                     (do
+                       (on-resize width height)
+                       (resize-handler width height))
+                     (tick-handler state))))))
     (.outputPercentileDistribution histogram System/out 1000000.0)))
 
 
 (set! *warn-on-reflection* false)
 
 
-(defn run [{:keys [width height]}]
-  (prn "running with" width height)
+(defn run [{:keys [width height title resize-handler draw-handler tick-handler]}]
   (with-glfw
     (let [resize-chan (a/chan (a/sliding-buffer 1))]
       (with-window {:width width
                     :height height
-                    :title "Janela"
+                    :title title
                     :resize-chan resize-chan}
         (fn [w]
           (init-gl)
-          (apply on-resize (framebuffer-size w))
-          (main-loop w resize-chan))))))
+          (main-loop w resize-chan resize-handler draw-handler tick-handler))))))
 
 
 (defmacro quick-test [& body]
