@@ -45,8 +45,6 @@ void main(){
          (GLFW/glfwTerminate)))))
 
 
-
-
 (defn create-glfw-window [{:keys [width height title resize-chan]}]
   (GLFW/glfwDefaultWindowHints)
   (GLFW/glfwWindowHint GLFW/GLFW_VISIBLE GLFW/GLFW_FALSE)
@@ -172,8 +170,6 @@ void main(){
 (set! *warn-on-reflection* false)
 
 
-
-
 (defn run [{:keys [width height]}]
   (prn "running with" width height)
   (with-glfw
@@ -190,11 +186,17 @@ void main(){
 
 (defmacro quick-test [& body]
   `(with-glfw
-     (with-window {:width 200 :height 100 :title "prova"}
-       (fn [~'w]
-         (init-gl)
-         ~@body
-         (Thread/sleep 3000)))))
+     (let [resize-chan (a/chan (a/sliding-buffer 1))]
+       (with-window {:width width
+                     :height height
+                     :title "Janela"
+                     :resize-chan resize-chan}
+         (fn [w]
+           (init-gl)
+           (apply on-resize (framebuffer-size w))
+           ~@body
+           (Thread/sleep 3000))))))
+
 
 (comment
 
