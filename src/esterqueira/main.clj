@@ -9,4 +9,5 @@
            :height height
            :title title
            :resize-handler logic/on-resize
-           :draw-handler logic/draw}))
+           :draw-handler logic/draw
+           :tick-handler logic/tick}))

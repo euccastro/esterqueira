@@ -65,7 +65,7 @@ void main(){
     (GLFW/glfwSetKeyCallback w kcb)
     (GLFW/glfwSetFramebufferSizeCallback w cb)
     (GLFW/glfwMakeContextCurrent w)
-    (GLFW/glfwSwapInterval 1)
+    (GLFW/glfwSwapInterval 0)
     (GLFW/glfwShowWindow w)
     w))
 
@@ -153,23 +153,31 @@ void main(){
 
 (defn main-loop [window resize-chan resize-handler draw-handler tick-handler]
   (let [histogram (Histogram. 1 (sec->ns 1) 3)
+        start-time (System/nanoTime)
         [w h] (framebuffer-size window)]
     (on-resize w h)
     (loop [frame-t0 nil
-           state (resize-handler w h)]
+           state (resize-handler w h)
+           num-frames 1]
       (draw (draw-handler state))
       (when frame-t0
+        (when (> (- (System/nanoTime) frame-t0) (/ 10000000 6))
+          (println "WAT"))
         (.recordValue histogram (- (System/nanoTime) frame-t0)))
       (GLFW/glfwSwapBuffers window)
       (GL45/glClear (bit-or GL45/GL_COLOR_BUFFER_BIT  GL45/GL_DEPTH_BUFFER_BIT))
       (let [t (System/nanoTime)]
         (GLFW/glfwPollEvents)
+        (println (/ (* num-frames 1000000000.0) (- (System/nanoTime) start-time)))
         (when-not (GLFW/glfwWindowShouldClose window)
-          (recur t (if-let [{:keys [width height]} (a/poll! resize-chan)]
-                     (do
-                       (on-resize width height)
-                       (resize-handler width height))
-                     (tick-handler state))))))
+          (recur t
+                 (if-let [{:keys [width height]} (a/poll! resize-chan)]
+                   (do
+                     (on-resize width height)
+                     (resize-handler width height))
+                   (let [buf (GLFW/glfwGetJoystickAxes GLFW/GLFW_JOYSTICK_1)]
+                     (tick-handler state (vec (take 6 (repeatedly #(.get buf)))))))
+                 (inc num-frames)))))
     (.outputPercentileDistribution histogram System/out 1000000.0)))
 
 
@@ -190,23 +198,30 @@ void main(){
 
 (defmacro quick-test [& body]
   `(with-glfw
-     (let [resize-chan (a/chan (a/sliding-buffer 1))]
-       (with-window {:width width
-                     :height height
+     (let [resize-chan# (a/chan (a/sliding-buffer 1))]
+       (with-window {:width 200
+                     :height 100
                      :title "Janela"
-                     :resize-chan resize-chan}
-         (fn [w]
+                     :resize-chan resize-chan#}
+         (fn [~'w]
            (init-gl)
-           (apply on-resize (framebuffer-size w))
-           ~@body
-           (Thread/sleep 3000))))))
+           (apply on-resize (framebuffer-size ~'w))
+           (let [result# (do ~@body)]
+             (Thread/sleep 1000)
+             result#))))))
 
 
 (comment
 
 
-  (quick-test
-   )
+
+  (quick-test )
+
+  (def buf *1)
+
+  (def bc  (class buf))
+
+  (.get buf)
 
   (future (run 200 100))
 
