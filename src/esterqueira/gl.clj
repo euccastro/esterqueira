@@ -120,7 +120,7 @@ void main(){
 (defn init-gl []
   (GL/createCapabilities)
   (println "OpenGL version:" (GL45/glGetString GL45/GL_VERSION))
-  (GL45/glClearColor 0.3 0.3 0.3 0.0)
+  (GL45/glClearColor 0.0 0.0 0.0 0.0)
   (create-square-vert-array)
   (GL45/glUseProgram (create-shaders))
   (GL45/glEnableVertexAttribArray 0)
