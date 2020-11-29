@@ -5,6 +5,7 @@
 ;;; coordenadas em pixels.
 
 
+(def initial-ball-speed 0.4)
 (def racket-bounce-speed-multiplier 1.05)
 
 
@@ -13,7 +14,7 @@
 
 
 (defn ball0 [radius]
-  {:x 0 :y 0 :speed (/ radius 4) :direction (/ Math/PI 4)})
+  {:x 0 :y 0 :speed (* radius initial-ball-speed) :direction (/ Math/PI 4)})
 
 
 (defn on-resize [width height]
@@ -38,6 +39,7 @@
 
 (def tau (* Math/PI 2))
 (def half-pi (/ Math/PI 2))
+(def three-halfs-pi (* Math/PI 3/2))
 
 
 (defn reflect-x [angle]
@@ -48,6 +50,12 @@
   (mod
    (+ angle (* 2 (- half-pi angle)))
    tau))
+
+
+(defn bounce-direction [racket-x racket-y ball-x ball-y]
+  (let [dy (- ball-y racket-y)
+        dx (- ball-x racket-x)]
+    (Math/atan2 dy dx)))
 
 
 (defn tick [{:keys [rackets racket-travel radius half-width half-height]
@@ -98,12 +106,16 @@
            (<= x (- ball-bounce-x))
            (< (Math/abs (- y left-racket-y))
               (+ radius (-> rackets :left :half-height))))
-          [(- ball-bounce-x) (reflect-y direction) (* speed racket-bounce-speed-multiplier)]
+          [(- ball-bounce-x)
+           (bounce-direction (- half-width) left-racket-y x y)
+           (* speed racket-bounce-speed-multiplier)]
           (and
            (>= x ball-bounce-x)
            (< (Math/abs (- y right-racket-y))
-                (+ radius (-> rackets :right :half-height))))
-          [ball-bounce-x (reflect-y direction) (* speed racket-bounce-speed-multiplier)]
+              (+ radius (-> rackets :right :half-height))))
+          [ball-bounce-x
+           (bounce-direction half-width right-racket-y x y)
+           (* speed racket-bounce-speed-multiplier)]
           :else [x direction speed])
 
         ;; game end/restart
