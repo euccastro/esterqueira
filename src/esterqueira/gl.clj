@@ -71,6 +71,7 @@ void main(){
                (a/put! resize-chan {:width width :height height})))]
       (GLFW/glfwSetKeyCallback w kcb)
       (GLFW/glfwSetFramebufferSizeCallback w cb)
+      (GLFW/glfwSetInputMode w GLFW/GLFW_CURSOR GLFW/GLFW_CURSOR_DISABLED)
       (GLFW/glfwMakeContextCurrent w)
       (GLFW/glfwSwapInterval 0)
       (GLFW/glfwShowWindow w)
