@@ -151,33 +151,35 @@ void main(){
   (GL45/glViewport 0 0 width height))
 
 
+(def frame-time-ns (sec->ns 1/60))
+
 (defn main-loop [window resize-chan resize-handler draw-handler tick-handler]
   (let [histogram (Histogram. 1 (sec->ns 1) 3)
-        start-time (System/nanoTime)
         [w h] (framebuffer-size window)]
     (on-resize w h)
-    (loop [frame-t0 nil
-           state (resize-handler w h)
-           num-frames 1]
-      (draw (draw-handler state))
-      (when frame-t0
-        (when (> (- (System/nanoTime) frame-t0) (/ 10000000 6))
-          (println "WAT"))
-        (.recordValue histogram (- (System/nanoTime) frame-t0)))
-      (GLFW/glfwSwapBuffers window)
-      (GL45/glClear (bit-or GL45/GL_COLOR_BUFFER_BIT  GL45/GL_DEPTH_BUFFER_BIT))
-      (let [t (System/nanoTime)]
-        (GLFW/glfwPollEvents)
-        (println (/ (* num-frames 1000000000.0) (- (System/nanoTime) start-time)))
-        (when-not (GLFW/glfwWindowShouldClose window)
-          (recur t
-                 (if-let [{:keys [width height]} (a/poll! resize-chan)]
-                   (do
-                     (on-resize width height)
-                     (resize-handler width height))
-                   (let [buf (GLFW/glfwGetJoystickAxes GLFW/GLFW_JOYSTICK_1)]
-                     (tick-handler state (vec (take 6 (repeatedly #(.get buf)))))))
-                 (inc num-frames)))))
+    (loop [state (resize-handler w h)
+           frame-t0 (System/nanoTime)
+           next-frame (+ frame-t0 frame-time-ns)]
+      (GLFW/glfwPollEvents)
+      (when-not (GLFW/glfwWindowShouldClose window)
+        (let [new-state
+              (if-let [{:keys [width height]} (a/poll! resize-chan)]
+                (do
+                  (on-resize width height)
+                  (resize-handler width height))
+                (let [buf (GLFW/glfwGetJoystickAxes GLFW/GLFW_JOYSTICK_1)]
+                  (tick-handler state (vec (take 6 (repeatedly #(.get buf)))))))]
+          (GL45/glClear (bit-or GL45/GL_COLOR_BUFFER_BIT  GL45/GL_DEPTH_BUFFER_BIT))
+          (draw (draw-handler new-state))
+          (GLFW/glfwSwapBuffers window)
+          (let [t (System/nanoTime)
+                dt (- t frame-t0)]
+            (.recordValue histogram dt)
+            (let [to-sleep (- (/ (- next-frame t) 1000000) 4)]
+              (if (pos? to-sleep)
+                (Thread/sleep to-sleep)
+                (println "WTF" to-sleep)))
+            (recur new-state (System/nanoTime) (+ next-frame frame-time-ns))))))
     (.outputPercentileDistribution histogram System/out 1000000.0)))
 
 
