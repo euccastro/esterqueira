@@ -175,7 +175,7 @@ void main(){
           (let [t (System/nanoTime)
                 dt (- t frame-t0)]
             (.recordValue histogram dt)
-            (let [to-sleep (- (/ (- next-frame t) 1000000) 4)]
+            (let [to-sleep (- (/ (- next-frame t) 1000000) 10)]
               (if (pos? to-sleep)
                 (Thread/sleep to-sleep)
                 (println "WTF" to-sleep)))
