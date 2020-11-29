@@ -5,8 +5,9 @@
 ;;; coordenadas em pixels.
 
 
-(def initial-ball-speed 0.4)
-(def racket-bounce-speed-multiplier 1.05)
+(def racket-size 6)
+(def initial-ball-speed 0.6)
+(def racket-bounce-speed-multiplier 1.1)
 
 
 (defn- round [x]
@@ -18,10 +19,10 @@
 
 
 (defn on-resize [width height]
-  (let [radius (round (/ height 60))
+  (let [radius (round (/ height 80))
         half-width (round (/ width 2))
         half-height (round (/ height 2))
-        racket-half-height (* radius 4)
+        racket-half-height (* radius racket-size)
         racket {:y 0
                 :half-height racket-half-height}]
     {:half-width (float (/ width 2))
@@ -62,9 +63,10 @@
              {:keys [x y direction speed]} :ball
              {left-score :left right-score :right} :score
              :as state}
-            [_ _ _ _ joystick-y _]]
-  (let [left-racket-y (- (* joystick-y racket-travel))
-        right-racket-y left-racket-y
+            [_ _ _ _ left-joystick-y _]
+            [_ _ _ _ right-joystick-y _]]
+  (let [left-racket-y (- (* left-joystick-y racket-travel))
+        right-racket-y (- (* right-joystick-y racket-travel))
         x (+ x (* (Math/cos direction) speed))
         y (+ y (* (Math/sin direction) speed))
         ball-bounce-x (- half-width (* radius 3))
@@ -148,7 +150,7 @@
         (for [[number offset] [[left-score -1] [right-score 1]]
               [x y] (number-centers number)]
           [(round (+ (* offset (/ half-width 3)) (* x radius 2)))
-           (round (+ (* half-height 2/3) (* y radius 2)))
+           (round (+ (* half-height 3/4) (* y radius 2)))
            radius
            radius]))))
 

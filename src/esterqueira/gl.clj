@@ -45,15 +45,22 @@ void main(){
          (GLFW/glfwTerminate)))))
 
 
-(defn create-glfw-window [{:keys [width height title resize-chan]}]
+(defn create-glfw-window [{:keys [width height title resize-chan fullscreen?]}]
   (GLFW/glfwDefaultWindowHints)
   (GLFW/glfwWindowHint GLFW/GLFW_VISIBLE GLFW/GLFW_FALSE)
-  (GLFW/glfwWindowHint GLFW/GLFW_RESIZABLE GLFW/GLFW_TRUE)
+  (when-not fullscreen?
+    (GLFW/glfwWindowHint GLFW/GLFW_RESIZABLE GLFW/GLFW_TRUE))
   (GLFW/glfwWindowHint GLFW/GLFW_OPENGL_PROFILE GLFW/GLFW_OPENGL_CORE_PROFILE)
   (GLFW/glfwWindowHint GLFW/GLFW_OPENGL_FORWARD_COMPAT GL45/GL_TRUE)
   (GLFW/glfwWindowHint GLFW/GLFW_CONTEXT_VERSION_MAJOR 4)
   (GLFW/glfwWindowHint GLFW/GLFW_CONTEXT_VERSION_MINOR 5)
-  (let [w (GLFW/glfwCreateWindow width height title 0 0)
+  (let [[width height monitor]
+        (if fullscreen?
+          (let [monitor (GLFW/glfwGetPrimaryMonitor)
+                mode (GLFW/glfwGetVideoMode monitor)]
+            [(.width mode) (.height mode) monitor])
+          [width height 0])
+        w (GLFW/glfwCreateWindow width height title monitor 0)
         kcb (proxy [GLFWKeyCallback] []
               (invoke [window key scancode action mods]
                 (when (and (= key GLFW/GLFW_KEY_ESCAPE)
@@ -62,12 +69,12 @@ void main(){
         cb (proxy [GLFWFramebufferSizeCallback] []
              (invoke [window width height]
                (a/put! resize-chan {:width width :height height})))]
-    (GLFW/glfwSetKeyCallback w kcb)
-    (GLFW/glfwSetFramebufferSizeCallback w cb)
-    (GLFW/glfwMakeContextCurrent w)
-    (GLFW/glfwSwapInterval 0)
-    (GLFW/glfwShowWindow w)
-    w))
+      (GLFW/glfwSetKeyCallback w kcb)
+      (GLFW/glfwSetFramebufferSizeCallback w cb)
+      (GLFW/glfwMakeContextCurrent w)
+      (GLFW/glfwSwapInterval 0)
+      (GLFW/glfwShowWindow w)
+      w))
 
 
 (defn with-window [window-opts f]
@@ -113,7 +120,7 @@ void main(){
 (defn init-gl []
   (GL/createCapabilities)
   (println "OpenGL version:" (GL45/glGetString GL45/GL_VERSION))
-  (GL45/glClearColor 0.5 0.5 0.5 0.0)
+  (GL45/glClearColor 0.3 0.3 0.3 0.0)
   (create-square-vert-array)
   (GL45/glUseProgram (create-shaders))
   (GL45/glEnableVertexAttribArray 0)
@@ -167,8 +174,11 @@ void main(){
                 (do
                   (on-resize width height)
                   (resize-handler width height))
-                (let [buf (GLFW/glfwGetJoystickAxes GLFW/GLFW_JOYSTICK_1)]
-                  (tick-handler state (vec (take 6 (repeatedly #(.get buf)))))))]
+                (let [left-buf (GLFW/glfwGetJoystickAxes GLFW/GLFW_JOYSTICK_1)
+                      right-buf (GLFW/glfwGetJoystickAxes GLFW/GLFW_JOYSTICK_2)]
+                  (tick-handler state
+                                (vec (take 6 (repeatedly #(.get left-buf))))
+                                (vec (take 6 (repeatedly #(.get right-buf)))))))]
           (GL45/glClear (bit-or GL45/GL_COLOR_BUFFER_BIT  GL45/GL_DEPTH_BUFFER_BIT))
           (draw (draw-handler new-state))
           (GLFW/glfwSwapBuffers window)
@@ -186,12 +196,13 @@ void main(){
 (set! *warn-on-reflection* false)
 
 
-(defn run [{:keys [width height title resize-handler draw-handler tick-handler]}]
+(defn run [{:keys [width height title fullscreen? resize-handler draw-handler tick-handler]}]
   (with-glfw
     (let [resize-chan (a/chan (a/sliding-buffer 1))]
       (with-window {:width width
                     :height height
                     :title title
+                    :fullscreen? fullscreen?
                     :resize-chan resize-chan}
         (fn [w]
           (init-gl)
@@ -216,9 +227,14 @@ void main(){
 (comment
 
 
+  (quick-test )
+  (quick-test (GLFW/glfwGetVideoMode (GLFW/glfwGetPrimaryMonitor)))
 
   (quick-test )
 
+  (def vidmode *1)
+
+  (.width vidmode)
   (def buf *1)
 
   (def bc  (class buf))
