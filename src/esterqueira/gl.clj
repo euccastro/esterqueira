@@ -73,7 +73,7 @@ void main(){
       (GLFW/glfwSetFramebufferSizeCallback w cb)
       (GLFW/glfwSetInputMode w GLFW/GLFW_CURSOR GLFW/GLFW_CURSOR_DISABLED)
       (GLFW/glfwMakeContextCurrent w)
-      (GLFW/glfwSwapInterval 0)
+      (GLFW/glfwSwapInterval 1)
       (GLFW/glfwShowWindow w)
       w))
 
@@ -163,11 +163,14 @@ void main(){
 
 (defn main-loop [window resize-chan resize-handler draw-handler tick-handler]
   (let [histogram (Histogram. 1 (sec->ns 1) 3)
-        [w h] (framebuffer-size window)]
+        [w h] (framebuffer-size window)
+        start-time (System/nanoTime)]
     (on-resize w h)
+    (GLFW/glfwPollEvents)
+    (GL45/glClear (bit-or GL45/GL_COLOR_BUFFER_BIT  GL45/GL_DEPTH_BUFFER_BIT))
+    (GLFW/glfwSwapBuffers window)
     (loop [state (resize-handler w h)
-           frame-t0 (System/nanoTime)
-           next-frame (+ frame-t0 frame-time-ns)]
+           frame-t0 (System/nanoTime)]
       (GLFW/glfwPollEvents)
       (when-not (GLFW/glfwWindowShouldClose window)
         (let [new-state
@@ -182,15 +185,12 @@ void main(){
                                 (vec (take 6 (repeatedly #(.get right-buf)))))))]
           (GL45/glClear (bit-or GL45/GL_COLOR_BUFFER_BIT  GL45/GL_DEPTH_BUFFER_BIT))
           (draw (draw-handler new-state))
-          (GLFW/glfwSwapBuffers window)
           (let [t (System/nanoTime)
                 dt (- t frame-t0)]
-            (.recordValue histogram dt)
-            (let [to-sleep (- (/ (- next-frame t) 1000000) 10)]
-              (if (pos? to-sleep)
-                (Thread/sleep to-sleep)
-                (println "WTF" to-sleep)))
-            (recur new-state (System/nanoTime) (+ next-frame frame-time-ns))))))
+            (if (> (- t start-time) (sec->ns 5))
+              (.recordValue histogram dt))
+            (GLFW/glfwSwapBuffers window)
+            (recur new-state (System/nanoTime))))))
     (.outputPercentileDistribution histogram System/out 1000000.0)))
 
 
