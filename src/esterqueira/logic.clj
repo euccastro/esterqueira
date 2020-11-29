@@ -1,14 +1,20 @@
-(ns esterqueira.logic)
+(ns esterqueira.logic
+  (:require [esterqueira.numbers :refer [number-centers]]))
 
 ;;; O sistema de coordenadas em state está centrado no centro da tela mais com
 ;;; coordenadas em pixels.
+
+
+(def racket-bounce-speed-multiplier 1.05)
+
 
 (defn- round [x]
   (Math/round (double x)))
 
 
 (defn ball0 [radius]
-  {:x 0 :y 0 :vx (/ radius 4) :vy (/ radius 4)})
+  {:x 0 :y 0 :speed (/ radius 4) :direction (/ Math/PI 4)})
+
 
 (defn on-resize [width height]
   (let [radius (round (/ height 60))
@@ -30,71 +36,95 @@
       (assoc racket :x (- half-width radius))}}))
 
 
+(def tau (* Math/PI 2))
+(def half-pi (/ Math/PI 2))
+
+
+(defn reflect-x [angle]
+  (mod (- angle) tau))
+
+
+(defn reflect-y [angle]
+  (mod
+   (+ angle (* 2 (- half-pi angle)))
+   tau))
+
+
 (defn tick [{:keys [rackets racket-travel radius half-width half-height]
-             {:keys [x y vx vy]} :ball
-             {score-left :left score-right :right} :score
+             {:keys [x y direction speed]} :ball
+             {left-score :left right-score :right} :score
              :as state}
             [_ _ _ _ joystick-y _]]
   (let [left-racket-y (- (* joystick-y racket-travel))
         right-racket-y left-racket-y
-        x (+ x vx)
-        y (+ y vy)
+        x (+ x (* (Math/cos direction) speed))
+        y (+ y (* (Math/sin direction) speed))
         ball-bounce-x (- half-width (* radius 3))
         ball-travel-x (+ half-width radius)
         ball-travel-y (- half-height radius)
         ball0 (ball0 radius)
 
         ;; point scored?
-        [new-score-left new-score-right]
+        [new-left-score new-right-score]
         (cond
           (< x (- ball-travel-x))
-          [score-left (inc score-right)]
+          [left-score (inc right-score)]
           (> x ball-travel-x)
-          [(inc score-left) score-right]
-          :else [score-left score-right])
+          [(inc left-score) right-score]
+          :else [left-score right-score])
 
-        [y vy]
+        [y direction]
         (cond
           ;; reset if point scored
-          (not= [score-left score-right] [new-score-left new-score-right])
-          ((juxt :y :vy) ball0)
+          (not= [left-score right-score] [new-left-score new-right-score])
+          ((juxt :y :direction) ball0)
           ;; ball bounce on wall
-          (< y (- ball-travel-y)) [(- ball-travel-y) (- vy)]
-          (> y ball-travel-y) [ball-travel-y (- vy)]
+          (< y (- ball-travel-y))
+          [(- ball-travel-y) (reflect-x direction)]
+          (> y ball-travel-y)
+          [ball-travel-y (reflect-x direction)]
           ;; default
-          :else [y vy])
+          :else [y direction])
 
-        [x vx]
+        [x direction speed]
         (cond
           ;; reset if point scored
-          (< score-left new-score-left)
-          ((juxt :x :vx) ball0)
-          (< score-right new-score-right)
-          [(:x ball0) (- (:vx ball0))]
+          (< left-score new-left-score)
+          ((juxt :x (comp reflect-y :direction) :speed) ball0)
+          (< right-score new-right-score)
+          ((juxt :x :direction :speed) ball0)
           ;; ball bounce on racket
           (and
            (<= x (- ball-bounce-x))
            (< (Math/abs (- y left-racket-y))
               (+ radius (-> rackets :left :half-height))))
-          [(- ball-bounce-x) (- vx)]
+          [(- ball-bounce-x) (reflect-y direction) (* speed racket-bounce-speed-multiplier)]
           (and
            (>= x ball-bounce-x)
            (< (Math/abs (- y right-racket-y))
                 (+ radius (-> rackets :right :half-height))))
-          [ball-bounce-x (- vx)]
-          :else [x vx])]
+          [ball-bounce-x (reflect-y direction) (* speed racket-bounce-speed-multiplier)]
+          :else [x direction speed])
+
+        ;; game end/restart
+        [new-left-score new-right-score]
+        (if (> (max new-left-score new-right-score) 9)
+          [0 0]
+          [new-left-score new-right-score])]
+
     (-> state
         (assoc-in [:rackets :left :y] left-racket-y)
         (assoc-in [:rackets :right :y] right-racket-y)
-        (assoc :ball {:x x :y y :vx vx :vy vy})
-        (assoc :score {:left new-score-left :right new-score-right}))))
+        (assoc :ball {:x x :y y :speed speed :direction direction})
+        (assoc :score {:left new-left-score :right new-right-score}))))
 
 
 (defn game->gl [half-width half-height [x y w h]]
   [(/ x half-width) (/ y half-height) (/ w half-width) (/ h half-height)])
 
 
-(defn draw [{:keys [half-width half-height radius ball rackets] :as state}]
+(defn draw [{:keys [half-width half-height radius ball rackets]
+             {left-score :left right-score :right} :score}]
   ;; devolve umha sequência de rectângulos.
   ;; cada rectângulo é um vector [x y w h]
   ;; onde x y w h som o centro, ancho e alto em pixels
@@ -102,7 +132,13 @@
        (concat
         (list [(:x ball) (:y ball) radius radius])
         (for [racket (vals rackets)]
-          [(:x racket) (:y racket) radius (:half-height racket)]))))
+          [(:x racket) (:y racket) radius (:half-height racket)])
+        (for [[number offset] [[left-score -1] [right-score 1]]
+              [x y] (number-centers number)]
+          [(round (+ (* offset (/ half-width 3)) (* x radius 2)))
+           (round (+ (* half-height 2/3) (* y radius 2)))
+           radius
+           radius]))))
 
 
 (comment
